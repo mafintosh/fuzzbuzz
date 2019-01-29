@@ -1,4 +1,5 @@
 const random = require('math-random-seed')
+const promisify = require('util').promisify
 
 class FuzzBuzz {
   constructor (opts) {
@@ -68,15 +69,3 @@ class FuzzBuzz {
 module.exports = FuzzBuzz
 
 function noop () {}
-
-function promisify (fn) {
-  if (fn.length !== 1) return fn
-  return function () {
-    return new Promise(function (resolve, reject) {
-      fn(function (err) {
-        if (err) return reject(err)
-        else resolve()
-      })
-    })
-  }
-}
