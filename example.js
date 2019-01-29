@@ -1,6 +1,7 @@
 const FuzzBuzz = require('./')
 
 const fuzz = new FuzzBuzz({
+  seed: process.argv[2] || '',
   async setup () {
     console.log('doing setup')
     await sleep(100)
