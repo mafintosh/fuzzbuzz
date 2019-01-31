@@ -1,6 +1,6 @@
 {
   "name": "fuzzbuzz",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Fuzz testing framework",
   "main": "index.js",
   "dependencies": {
