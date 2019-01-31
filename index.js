@@ -4,23 +4,23 @@ class FuzzBuzz {
   constructor (opts) {
     if (!opts) opts = {}
 
-    this.state = null
-    this.runSetup = promisify(opts.setup || noop)
-    this.runValidate = promisify(opts.validate || noop)
     this.operations = []
     this.random = random(opts.seed && (Buffer.isBuffer(opts.seed) ? opts.seed : Buffer.from(opts.seed, 'hex')))
     this.seed = this.random.seed.toString('hex')
+
+    if (opts.setup) this._setup = promisify(opts.setup)
+    if (opts.validate) this._validate = promisify(opts.validate)
 
     const operations = opts.operations || []
     for (const [ weight, fn ] of operations) this.add(weight, fn)
   }
 
   setup (fn) {
-    this.runSetup = promisify(fn)
+    this._setup = promisify(fn)
   }
 
   validate (fn) {
-    this.runValidate = promisify(fn)
+    this._validate = promisify(fn)
   }
 
   add (weight, fn) {
@@ -59,15 +59,21 @@ class FuzzBuzz {
   }
 
   async run (n) {
-    await this.runSetup()
+    await this._setup()
     for (let i = 0; i < n; i++) await this.call(this.operations)
-    await this.runValidate()
+    await this._validate()
+  }
+
+  _setup () {
+    // overwrite me
+  }
+
+  _validate () {
+    // overwrite me
   }
 }
 
 module.exports = FuzzBuzz
-
-function noop () {}
 
 function promisify (fn) {
   if (fn.length !== 1) return fn
