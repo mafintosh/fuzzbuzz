@@ -58,10 +58,54 @@ class FuzzBuzz {
     return items.length ? items[this.randomInt()] : null
   }
 
-  async run (n) {
+  async run (n, opts) {
+    const validateAll = !!(opts && opts.validateAll)
     await this._setup()
-    for (let i = 0; i < n; i++) await this.call(this.operations)
-    await this._validate()
+    for (let i = 0; i < n; i++) {
+      await this.call(this.operations)
+      if (validateAll) await this._validate()
+    }
+    if (!validateAll) await this._validate()
+  }
+
+  async bisect (n) {
+    let start = 0
+    let end = n
+
+    // galloping search ...
+    while (start < end) {
+      let dist = Math.min(1, end - start)
+      let ptr = 0
+      let i = 0
+
+      this.random = random(this.random.seed)
+      await this._setup()
+
+      for (; i < n; i++) {
+        try {
+          await this.call(this.operations)
+        } catch (_) {
+          break
+        }
+
+        if (i < start) continue
+        if (dist === ++ptr) {
+          try {
+            await this._validate()
+            start = i + 1
+          } catch (err) {
+            break
+          }
+          dist *= 2
+        }
+      }
+      end = i
+    }
+
+    // reset the state
+    this.random = random(this.random.seed)
+
+    return end + 1
   }
 
   _setup () {

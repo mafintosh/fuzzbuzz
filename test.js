@@ -253,3 +253,74 @@ tape('fuzz the fuzzer', async function (assert) {
   await fuzz.run(1000)
   assert.end()
 })
+
+tape('bisect', async function (assert) {
+  const fuzz = new FuzzBuzz({
+    setup () {
+      this.n = 0
+      this.expected = 0
+    },
+    validate () {
+      if (this.n !== this.expected) throw new Error()
+    },
+    operations: [
+      [ 20, add ],
+      [ 20, sub ],
+      [ 20, mul ],
+      [ 1, faulty ]
+    ]
+  })
+
+  let faults = 0
+  let error
+
+  try {
+    await fuzz.run(20000)
+  } catch (err) {
+    error = err
+  }
+
+  assert.ok(error, 'run failed')
+  assert.ok(faults > 0, 'faulty op ran')
+
+  const n = await fuzz.bisect(10000)
+  assert.pass('bisect says we need ' + n + ' runs to fail')
+
+  faults = 0
+  error = null
+
+  try {
+    await fuzz.run(n)
+  } catch (err) {
+    error = err
+  }
+
+  assert.ok(error, 'still fails')
+  assert.same(faults, 1, 'only one fault after rerunning')
+  assert.end()
+
+  function add () {
+    const r = this.randomInt(10)
+    this.n += r
+    this.expected += r
+  }
+
+  function sub () {
+    const r = this.randomInt(10)
+    this.n -= r
+    this.expected -= r
+  }
+
+  function mul () {
+    const r = this.random()
+    this.n *= r
+    this.expected *= r
+  }
+
+  function faulty () {
+    const r = this.randomInt(10)
+    this.n += r + 1 // faulty op
+    this.expected += r
+    faults++
+  }
+})
