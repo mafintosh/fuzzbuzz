@@ -114,6 +114,11 @@ Set the setup function after constructing the fuzzer.
 
 Set the validate function after constructing the fuzzer.
 
+#### `fuzz.debug(msg)`
+
+Print out a debug message. Requires `options.debugging = true` or
+the DEBUG env var to contain `fuzzbuzz` to print it out.
+
 ## License
 
 MIT

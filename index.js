@@ -8,12 +8,15 @@ class FuzzBuzz {
     this.seed = opts.seed || randomBytes(32).toString('hex')
     this.random = random(createHash('sha256').update(this.seed).digest())
     this.operations = []
+    this.debugging = !!opts.debugging || (process.env.DEBUG || '').indexOf('fuzzbuzz') > -1
 
     if (opts.setup) this._setup = promisify(opts.setup)
     if (opts.validate) this._validate = promisify(opts.validate)
 
     const operations = opts.operations || []
     for (const [ weight, fn ] of operations) this.add(weight, fn)
+
+    this.debug('seed is ' + this.seed)
   }
 
   setup (fn) {
@@ -44,10 +47,10 @@ class FuzzBuzz {
   async call (ops) {
     let totalWeight = 0
     for (const [ weight ] of ops) totalWeight += weight
-    let n = this.random() * totalWeight
+    let n = this.randomInt(totalWeight)
     for (const [ weight, op ] of ops) {
       n -= weight
-      if (n <= 0) return op.call(this)
+      if (n < 0) return op.call(this)
     }
   }
 
@@ -69,12 +72,19 @@ class FuzzBuzz {
     if (!validateAll) await this._validate()
   }
 
+  debug (...msg) {
+    if (this.debugging) console.log('fuzzbuzz:', ...msg)
+  }
+
   async bisect (n) {
     let start = 0
     let end = n
+    let ops = 0
 
     // galloping search ...
     while (start < end) {
+      this.debug('bisecting start=' + start + ' and end=' + end)
+
       let dist = Math.min(1, end - start)
       let ptr = 0
       let i = 0
@@ -84,6 +94,7 @@ class FuzzBuzz {
 
       for (; i < n; i++) {
         try {
+          ops++
           await this.call(this.operations)
         } catch (_) {
           break
@@ -105,6 +116,7 @@ class FuzzBuzz {
 
     // reset the state
     this.random = random(this.random.seed)
+    this.debug('min amount of operations=' + (end + 1) + ' (ran a total of ' + ops + ' operations during bisect)')
 
     return end + 1
   }
