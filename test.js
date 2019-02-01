@@ -283,7 +283,7 @@ tape('bisect', async function (assert) {
   assert.ok(error, 'run failed')
   assert.ok(faults > 0, 'faulty op ran')
 
-  const n = await fuzz.bisect(10000)
+  const n = await fuzz.bisect(20000)
   assert.pass('bisect says we need ' + n + ' runs to fail')
 
   faults = 0
