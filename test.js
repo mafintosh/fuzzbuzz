@@ -264,9 +264,9 @@ tape('bisect', async function (assert) {
       if (this.n !== this.expected) throw new Error()
     },
     operations: [
-      [ 20, add ],
-      [ 20, sub ],
-      [ 20, mul ],
+      [ 10, add ],
+      [ 10, sub ],
+      [ 10, mul ],
       [ 1, faulty ]
     ]
   })
@@ -312,7 +312,7 @@ tape('bisect', async function (assert) {
   }
 
   function mul () {
-    const r = this.random()
+    const r = this.random() + 0.5
     this.n *= r
     this.expected *= r
   }

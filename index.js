@@ -1,12 +1,13 @@
 const random = require('math-random-seed')
+const { randomBytes, createHash } = require('crypto')
 
 class FuzzBuzz {
   constructor (opts) {
     if (!opts) opts = {}
 
+    this.seed = opts.seed || randomBytes(32).toString('hex')
+    this.random = random(createHash('sha256').update(this.seed).digest())
     this.operations = []
-    this.random = random(opts.seed && (Buffer.isBuffer(opts.seed) ? opts.seed : Buffer.from(opts.seed, 'hex')))
-    this.seed = this.random.seed.toString('hex')
 
     if (opts.setup) this._setup = promisify(opts.setup)
     if (opts.validate) this._validate = promisify(opts.validate)
