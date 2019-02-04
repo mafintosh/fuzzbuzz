@@ -81,6 +81,13 @@ are done, the validate function is run.
 The randomness that is used to pick each operation is based on the seed from the constructor
 so if you pass the same seed twice the order is deterministic.
 
+#### `promise<minRuns> = fuzz.bisect(maxTimes)`
+
+Using a bisection algorithm the fuzzer will find the minimum amount of runs
+for either your validation function to fail or for an operation to throw.
+
+The returned minimum amount of runs are returned afterwards.
+
 #### `item = fuzz.pick(array)`
 
 Pick a random element from an array. Uses the random seed as well.
@@ -106,6 +113,11 @@ Set the setup function after constructing the fuzzer.
 #### `fuzz.validate(async fn)`
 
 Set the validate function after constructing the fuzzer.
+
+#### `fuzz.debug(msg)`
+
+Print out a debug message. Requires `options.debugging = true` or
+the DEBUG env var to contain `fuzzbuzz` to print it out.
 
 ## License
 

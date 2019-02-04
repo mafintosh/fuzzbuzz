@@ -1,27 +1,31 @@
 const random = require('math-random-seed')
 const _promisify = require('util').promisify
+const { randomBytes, createHash } = require('crypto')
 
 class FuzzBuzz {
   constructor (opts) {
     if (!opts) opts = {}
 
-    this.state = null
-    this.runSetup = promisify(opts.setup || noop)
-    this.runValidate = promisify(opts.validate || noop)
+    this.seed = opts.seed || randomBytes(32).toString('hex')
+    this.random = random(createHash('sha256').update(this.seed).digest())
     this.operations = []
-    this.random = random(opts.seed && (Buffer.isBuffer(opts.seed) ? opts.seed : Buffer.from(opts.seed, 'hex')))
-    this.seed = this.random.seed.toString('hex')
+    this.debugging = !!opts.debugging || (process.env.DEBUG || '').indexOf('fuzzbuzz') > -1
+
+    if (opts.setup) this._setup = promisify(opts.setup)
+    if (opts.validate) this._validate = promisify(opts.validate)
 
     const operations = opts.operations || []
     for (const [ weight, fn ] of operations) this.add(weight, fn)
+
+    this.debug('seed is ' + this.seed)
   }
 
   setup (fn) {
-    this.runSetup = promisify(fn)
+    this._setup = promisify(fn)
   }
 
   validate (fn) {
-    this.runValidate = promisify(fn)
+    this._validate = promisify(fn)
   }
 
   add (weight, fn) {
@@ -44,10 +48,10 @@ class FuzzBuzz {
   async call (ops) {
     let totalWeight = 0
     for (const [ weight ] of ops) totalWeight += weight
-    let n = this.random() * totalWeight
+    let n = this.randomInt(totalWeight)
     for (const [ weight, op ] of ops) {
       n -= weight
-      if (n <= 0) return op.call(this)
+      if (n < 0) return op.call(this)
     }
   }
 
@@ -59,16 +63,75 @@ class FuzzBuzz {
     return items.length ? items[this.randomInt()] : null
   }
 
-  async run (n) {
-    await this.runSetup()
-    for (let i = 0; i < n; i++) await this.call(this.operations)
-    await this.runValidate()
+  async run (n, opts) {
+    const validateAll = !!(opts && opts.validateAll)
+    await this._setup()
+    for (let i = 0; i < n; i++) {
+      await this.call(this.operations)
+      if (validateAll) await this._validate()
+    }
+    if (!validateAll) await this._validate()
+  }
+
+  debug (...msg) {
+    if (this.debugging) console.log('fuzzbuzz:', ...msg)
+  }
+
+  async bisect (n) {
+    let start = 0
+    let end = n
+    let ops = 0
+
+    // galloping search ...
+    while (start < end) {
+      this.debug('bisecting start=' + start + ' and end=' + end)
+
+      let dist = Math.min(1, end - start)
+      let ptr = 0
+      let i = 0
+
+      this.random = random(this.random.seed)
+      await this._setup()
+
+      for (; i < n; i++) {
+        try {
+          ops++
+          await this.call(this.operations)
+        } catch (_) {
+          break
+        }
+
+        if (i < start) continue
+        if (dist === ++ptr) {
+          try {
+            await this._validate()
+            start = i + 1
+          } catch (err) {
+            break
+          }
+          dist *= 2
+        }
+      }
+      end = i
+    }
+
+    // reset the state
+    this.random = random(this.random.seed)
+    this.debug('min amount of operations=' + (end + 1) + ' (ran a total of ' + ops + ' operations during bisect)')
+
+    return end + 1
+  }
+
+  _setup () {
+    // overwrite me
+  }
+
+  _validate () {
+    // overwrite me
   }
 }
 
 module.exports = FuzzBuzz
-
-function noop () {}
 
 function promisify (fn) {
   if (fn.length !== 1) return fn
