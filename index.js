@@ -1,4 +1,5 @@
 const random = require('math-random-seed')
+const { promisify } = require('util')
 const { randomBytes, createHash } = require('crypto')
 
 class FuzzBuzz {
@@ -10,8 +11,8 @@ class FuzzBuzz {
     this.operations = []
     this.debugging = !!opts.debugging || (process.env.DEBUG || '').indexOf('fuzzbuzz') > -1
 
-    if (opts.setup) this._setup = promisify(opts.setup)
-    if (opts.validate) this._validate = promisify(opts.validate)
+    if (opts.setup) this._setup = promisifyMaybe(opts.setup)
+    if (opts.validate) this._validate = promisifyMaybe(opts.validate)
 
     const operations = opts.operations || []
     for (const [ weight, fn ] of operations) this.add(weight, fn)
@@ -20,15 +21,15 @@ class FuzzBuzz {
   }
 
   setup (fn) {
-    this._setup = promisify(fn)
+    this._setup = promisifyMaybe(fn)
   }
 
   validate (fn) {
-    this._validate = promisify(fn)
+    this._validate = promisifyMaybe(fn)
   }
 
   add (weight, fn) {
-    this.operations.push([ weight, promisify(fn), fn ])
+    this.operations.push([ weight, promisifyMaybe(fn), fn ])
   }
 
   remove (weight, fn) {
@@ -132,14 +133,7 @@ class FuzzBuzz {
 
 module.exports = FuzzBuzz
 
-function promisify (fn) {
+function promisifyMaybe (fn) {
   if (fn.length !== 1) return fn
-  return function () {
-    return new Promise(function (resolve, reject) {
-      fn(function (err) {
-        if (err) return reject(err)
-        else resolve()
-      })
-    })
-  }
+  return promisify(fn)
 }
